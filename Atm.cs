@@ -5,12 +5,13 @@ namespace ATM_machine
 {
     class Atm(List<int> banknotesPile)
     {
-        private readonly List<int> banknotes = [.. banknotesPile.OrderBy(x => x)];
+        private record StackData(List<int> banknotes, List<int> partial);
+        private readonly List<int> banknotes = [.. banknotesPile.Distinct().OrderBy(x => x)];
         private readonly List<List<int>> result = [];
 
         public List<List<int>> Change(int nominal) 
-        { 
-            SolveRecursive(banknotes, nominal, []); 
+        {
+            SolveIterative(nominal); 
             return result;
         }
 
@@ -32,6 +33,36 @@ namespace ATM_machine
                 var partialRec = new List<int>(partial) { n };
 
                 SolveRecursive(remaining, nominal, partialRec);
+            }
+        }
+
+        private void SolveIterative(int nominal)
+        {
+            var stack = new Stack<(List<int> remaining, List<int> partial)>();
+
+            stack.Push((banknotes, new List<int>()));
+
+            while (stack.Count > 0)
+            {
+                var (remaining, partial) = stack.Pop();
+
+                int s = 0;
+                foreach (int x in partial) { s += x; } 
+                if (s == nominal) { result.Add(new List<int>(partial)); }
+                if (s >= nominal) { continue; }
+
+                for (int i = 0; i < remaining.Count; i++)
+                {
+                    int n = remaining[i];
+                    var newPartial = new List<int>(partial) { n };
+                    var newRemaining = new List<int>();
+                    for (int j = i; j < remaining.Count; j++) 
+                    {
+                        newRemaining.Add(remaining[j]);
+                    }
+
+                    stack.Push((newRemaining, newPartial));
+                }
             }
         }
 
