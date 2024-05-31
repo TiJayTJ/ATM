@@ -1,80 +1,162 @@
 ﻿using ATM_machine;
+using System.Net.Http.Headers;
+using System.Numerics;
 
 class Program
 {
     static void Main()
     {
-        int nominal = GetNominal();
-        Console.WriteLine();
-        var banknotes = GetBanknotes();
-        var atm = new Atm(banknotes);
-        Console.WriteLine("Всевозможные варианты размена:");
-        Atm.PrintResult(atm.Change(nominal));
+        while(true)
+        {
+            Console.WriteLine("======================================================================");
+            int nominal = GetNominal();
+            Console.WriteLine();
+            var banknotes = GetBanknotes();
+            var atm = new Atm(banknotes);
+            Console.WriteLine("Ведётся подсчёт...");
+            List<List<int>> result = atm.Change(nominal);
+            Console.SetCursorPosition(0, Console.CursorTop - 1);
+            ClearCurrentConsoleLine();
+            if (result.Count > 0)
+            {
+                Console.WriteLine("Всевозможные комбинации для размена:");
+                Atm.PrintResult(result);
+            }
+            else
+            {
+                Console.WriteLine("Не удалось найти комбинации для размена");
+            }
+        }        
     }
+    public static void ClearCurrentConsoleLine()
+    {
+        int currentLineCursor = Console.CursorTop;
+        Console.SetCursorPosition(0, Console.CursorTop);
+        Console.Write(new string(' ', Console.WindowWidth));
+        Console.SetCursorPosition(0, currentLineCursor);
+    }
+
 
     static private int GetNominal()
     {
-        int result;
         while (true)
         {
-            Console.Write("Введите сумму(целое число), которую хотите разменять: ");
-            string? input = Console.ReadLine();
+            Console.Write("Введите номинал банкноты, которую хотите разменять: ");
+            string? inputString = Console.ReadLine().Replace('.', ',');
 
-            if (int.TryParse(input, out result))
+            if (string.IsNullOrWhiteSpace(inputString))
             {
-                if (result < 0)
+                Console.WriteLine("Ошибка: Пустая строка");
+                continue;
+            }
+
+
+            if (double.TryParse(inputString, out double result)) { 
+                if (result % 1 == 0)
                 {
-                    Console.WriteLine("Ошибка: Выдаваемая сумма не может быть отрицательной");
+                    if (result > int.MaxValue)
+                    {
+                        Console.WriteLine("Ошибка: Слишком большое число (>= 2 147 483 648)");
+                    }
+                    else if (result < 0)
+                    {
+                        Console.WriteLine("Ошибка: Номинал не может быть отрицательным");
+                    }
+                    else if (result == 0)
+                    {
+                        Console.WriteLine("Ошибка: Номинал не может быть нулевым");
+                    }
+                    else
+                    {
+                        return (int)result;
+                    }
                 }
                 else
                 {
-                    break;
+                    Console.WriteLine("Ошибка: Номинал должен быть целым числом");
                 }
             }
             else
             {
-                Console.WriteLine("Ошибка: Введено не целое число\n"); 
+                Console.WriteLine("Ошибка: Некорректный ввод");
             }
         }
-        return result;
     }
     static List<int> GetBanknotes()
     {
-        var banknotes = new List<int>();
-        string[] inputLine;
+        var banknotes = new List<int> {};
+        List<string> logs;
+        string?[] inputLine;
         var continueCycle = true;
 
         while (continueCycle)
         {
-            Console.WriteLine("Введите доступные для размена купюры (целые числа) через пробел. " +
-                "\nЧтобы закончить ввод, введите 0.");
-            inputLine = Console.ReadLine().Split([' ']);
+            banknotes = [];
+            logs = [];
+
+            Console.WriteLine("Введите через пробел купюры, которые будут доступны для размена. " +
+                "Строка должна заканчиваться числом 0, означающем конец входных данных");
+            string? inputString = Console.ReadLine().Replace('.', ',');
+
+            if (string.IsNullOrWhiteSpace(inputString))
+            {
+                Console.WriteLine("Ошибка: Пустая строка");
+                continue;
+            }
+            inputLine = inputString.Split(' ', '\t').Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+
+            if (inputLine[^1] != "0")
+            {
+                logs.Add("Ошибка: строка должна заканчиваться числом 0");
+            }
+
             foreach (string input in inputLine) 
             {
-                if (input == "0")
+                if (double.TryParse(input, out double nominal))
                 {
-                    continueCycle = false;
-                    break;
-                }
-
-                if (int.TryParse(input, out int number))
-                {
-                    if (number < 0)
+                    if ((nominal % 1) == 0)
                     {
-                        Console.WriteLine("Ошибка: Купюра не может быть отрицательной.\n");
+                        if (nominal > int.MaxValue)
+                        {
+                            /*logs.Add(String.Format("Ошибка: Слишком большое число (>= %d)", int.MaxValue + 1));*/
+                            logs.Add("Ошибка: Слишком большое число (>= 2 147 483 648)");
+                        }
+                        else if (nominal < 0)
+                        {
+                            logs.Add("Ошибка: Номинал не может быть отрицательным");
+                        }
+                        else
+                        {
+                            banknotes.Add((int)nominal);
+                        }
                     }
                     else
                     {
-                        banknotes.Add(number);
+                        logs.Add("Ошибка: Номинал должен быть целым числом"); 
                     }
                 }
                 else
                 {
-                    Console.WriteLine("Ошибка: Некорректный ввод. Пожалуйста, введите целое число.\n");
+                    logs.Add("Ошибка: Некорректный ввод");
                 }
             }
-        }
+            if (banknotes.Count > 0 && banknotes.Count(x => x == 0) > 1){
+                logs.Add("Ошибка: Обнаружен 0 в середине строки");
+            }
 
+            if(logs.Count > 0)
+            {
+                foreach (string input in logs.Distinct())
+                {
+                    Console.WriteLine(input);
+                }
+            }
+            else
+            {
+                continueCycle = false;
+            }
+        }
+        banknotes.RemoveAt(banknotes.Count - 1);
         return banknotes;
     }
 }
